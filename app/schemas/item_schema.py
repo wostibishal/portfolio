@@ -1,9 +1,12 @@
 from uuid import UUID
-from sqlmodel import  SQLModel
+from sqlmodel import SQLModel
 
+
+# ------------------------------create schema------------------------------------------------------
 
 class Read_item(SQLModel):
     id: UUID
+    image : str
     name: str
     description: str | None = None
     price: float
@@ -13,6 +16,7 @@ class Read_item(SQLModel):
         from_attributes=True
 
 class Create_item(SQLModel):
+    image: str
     name: str
     description: str | None = None
     price: float
@@ -23,6 +27,8 @@ class Create_item(SQLModel):
     class Config:
         from_attributes=True
 
+
+#----------------------------- output schema ----------------------------------------------------------
 
 class Update_item(SQLModel):
     id : UUID

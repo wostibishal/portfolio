@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from sqlmodel import SQLModel
 from uuid import UUID
 
-class userBAse(BaseModel):
+class userBAse(SQLModel):
     first_name: str
     last_name: str
     email: str
@@ -13,7 +13,7 @@ class userBAse(BaseModel):
 class UserCreate(userBAse):
     password: str
 
-class UserRead(userBAse):
+class UserRead(SQLModel):
     id: UUID
    
     class Config:
@@ -21,7 +21,7 @@ class UserRead(userBAse):
    
 
 
-class loginSchema(BaseModel):
+class loginSchema(SQLModel):
     email: str
     password: str
     
