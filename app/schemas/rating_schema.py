@@ -7,7 +7,6 @@ class Read_rating(SQLModel):
     average_score: float | None = None
 
     class Config:
-        orm_mode = True,
         from_attributes = True
 
 class Create_rating(SQLModel):
@@ -15,19 +14,16 @@ class Create_rating(SQLModel):
     item_id: UUID
 
     class Config:
-        orm_mode = True,
         from_attributes = True
 
 class Update_rating(SQLModel):
     score: int | None = None
 
     class Config:
-        orm_mode = True,
         from_attributes = True
 
 class Delete_rating(SQLModel):
     id: UUID
 
     class Config:
-        orm_mode = True,
         from_attributes = True

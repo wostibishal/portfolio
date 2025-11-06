@@ -1,12 +1,12 @@
 from datetime import datetime
 from sqlmodel import SQLModel
 from uuid import UUID
+from backend.app.services import Role
 
 class userBAse(SQLModel):
     first_name: str
     last_name: str
     email: str
-    role: str
 
 
 class UserCreate(userBAse):
@@ -17,6 +17,7 @@ class UserCreate(userBAse):
 
 class UserRead(userBAse):
     id: UUID
+    role: Role
    
     class Config:
         from_attributes = True

@@ -13,7 +13,6 @@ class Read_item(SQLModel):
     is_offer: bool | None = None
 
     class Config:
-        orm_mode = True,
         from_attributes=True
 
 
@@ -27,7 +26,6 @@ class Create_item(SQLModel):
     in_stock: bool = True
 
     class Config:
-        orm_mode = True,
         from_attributes=True
 
 
@@ -38,7 +36,6 @@ class Update_item(SQLModel):
     message: str = "Item updated successfully"
 
     class Config:
-        orm_mode = True,
         from_attributes=True
 
 class Delete_item(SQLModel):
@@ -46,5 +43,4 @@ class Delete_item(SQLModel):
     message: str = "Item deleted successfully"
 
     class Config:
-        orm_mode = True,
         from_attributes=True

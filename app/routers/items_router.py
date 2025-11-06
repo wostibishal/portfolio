@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.app.db.session import get_session
 from backend.app.core.security import get_current_active_user
-from backend.app.core.role import role_required
+from backend.app.services import Role_required
 from sqlmodel import Session
 from backend.app.schemas.item_schema import Read_item, Create_item, Update_item, Delete_item
 from uuid import UUID
