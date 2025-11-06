@@ -24,8 +24,8 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 # Retrieve user from database
-def get_user(db: session, email: str) -> Optional[User]:
-    statement = select(User).where(User.email == email)
+def get_user(db: session, email: str, role: str) -> Optional[User]:
+    statement = select(User).where(User.email == email and User.role == role)
     return db.exec(statement).first()
 
 
@@ -64,7 +64,7 @@ async def get_current_user(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
+        email = payload.get("email")
         if email is None:
             raise credentials_exception
     except InvalidTokenError:
@@ -81,5 +81,7 @@ async def get_current_active_user(
 ):
     if getattr(current_user, "disabled", False):
         raise HTTPException(status_code=400, detail="Inactive user")
+    
     return current_user
+
 

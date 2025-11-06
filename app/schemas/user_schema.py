@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlmodel import SQLModel
 from uuid import UUID
 
@@ -5,15 +6,16 @@ class userBAse(SQLModel):
     first_name: str
     last_name: str
     email: str
-    is_active: bool = True
+    role: str
 
-    class Config:
-        from_attributes = True
 
 class UserCreate(userBAse):
     password: str
+    is_active: bool = True
+    created_at: str = datetime.now()
 
-class UserRead(SQLModel):
+
+class UserRead(userBAse):
     id: UUID
    
     class Config:
@@ -21,9 +23,3 @@ class UserRead(SQLModel):
    
 
 
-class loginSchema(SQLModel):
-    email: str
-    password: str
-    
-    class Config:
-        from_attributes = True

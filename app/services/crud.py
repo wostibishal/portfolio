@@ -43,8 +43,12 @@ class CRUDBase(Generic[ModelType]):
         db.refresh(obj_in)
         return obj_in
 
-    def update(self, db: Session , obj_in: dict[str, Any],db_obj: ModelType) -> ModelType:
-        for key, value in obj_in.items():
+    def update(self, db: Session ,db_obj: ModelType, obj_in: dict[str, Any],) -> ModelType:
+        if isinstance(obj_in, dict):
+            update_data = obj_in
+        else:
+            update_data = obj_in.dict(exclude_unset=True)
+        for key, value in update_data.items():
             setattr(db_obj, key, value)
         db.add(db_obj)
         db.commit()
