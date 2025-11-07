@@ -1,6 +1,6 @@
 from backend.app.services.crud import CRUDBase
-from backend.app.models.item_model import Item, Rating, Comment 
+from backend.app.models.product_model import product, Rating, Comment 
 
-item_crud = CRUDBase(Item)
+product_crud = CRUDBase(product)
 comment_crud = CRUDBase(Comment)
 rating_crud = CRUDBase(Rating)

@@ -3,7 +3,7 @@ from uuid import UUID
 
 
 class Read_rating(SQLModel):
-    item_id: UUID 
+    product_id: UUID 
     average_score: float | None = None
 
     class Config:
@@ -11,7 +11,7 @@ class Read_rating(SQLModel):
 
 class Create_rating(SQLModel):
     score: int
-    item_id: UUID
+    product_id: UUID
 
     class Config:
         from_attributes = True

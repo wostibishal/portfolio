@@ -12,7 +12,7 @@ class Read_comment(SQLModel):
 
 class Create_comment(SQLModel):
     content: str
-    item_id: UUID
+    product_id: UUID
 
     class Config:
         from_attributes=True

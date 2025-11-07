@@ -7,5 +7,5 @@ class Rating(SQLModel, table=True):
     id : UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     score : int
     costuemr_id : UUID = Field(foreign_key="costumer.id", nullable=False)
-    item_id : UUID = Field(foreign_key="items.id", nullable=False)
+    product_id : UUID = Field(foreign_key="products.id", nullable=False)
     created_at: str = Field(default=datetime.now())

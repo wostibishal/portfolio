@@ -2,7 +2,7 @@ from sqlmodel import Field, SQLModel
 from uuid import  uuid4, UUID
 from pydantic import EmailStr
 from datetime import datetime
-from backend.app.services import Role
+from backend.app.services.user_services import Role
 
 class User(SQLModel):
    id : UUID = Field(default_factory=uuid4, primary_key=True, index=True)
@@ -24,8 +24,11 @@ class Retailer(User, table = True):
 
 class Costumer(User, table= True):
    __tablename__ = "costumer"
+   brand: str | None = None
    role : Role =Field(default= Role.COSTUMER)
    is_active : bool = True
+   had_strike : bool = False
+   strike : int = Field(default= 0)
    
 
 class Super(User, table= True):

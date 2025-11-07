@@ -4,23 +4,25 @@ from typing import Optional
 
 # ------------------------------create schema------------------------------------------------------
 
-class Read_item(SQLModel):
+class product(SQLModel):
     id: UUID
     image_url : Optional[str] = None
     name: str
     description: str | None = None
+    
+
+class Read_product(SQLModel):
+    
     price: float
-    is_offer: bool | None = None
+    category : str
+
 
     class Config:
         from_attributes=True
 
 
-class Create_item(SQLModel):
-    image_url: Optional[str] = None
-    name: str
-    description: str | None = None
-    price: float
+class Create_product(SQLModel):
+    
     is_offer: bool | None = None
     quantity: int | None = None
     in_stock: bool = True
@@ -31,16 +33,15 @@ class Create_item(SQLModel):
 
 #----------------------------- output schema ----------------------------------------------------------
 
-class Update_item(SQLModel):
-    id : UUID
-    message: str = "Item updated successfully"
+class Update_product(SQLModel):
+   
 
     class Config:
         from_attributes=True
 
-class Delete_item(SQLModel):
+class Delete_product(SQLModel):
     id: UUID
-    message: str = "Item deleted successfully"
+    message: str = "product deleted successfully"
 
     class Config:
         from_attributes=True

@@ -5,8 +5,8 @@ from sqlmodel import Session, select
 import jwt
 
 from backend.app.db.session import get_session
-from backend.app.models.user_model import Costumer, Retailer, Super
-from backend.app.schemas.user_schema import UserRead, UserCreate
+from backend.app.models.user_model import Costumer, Retailer, Super, User
+from backend.app.schemas.user_schema import UserRead, UserCreate, UpdateUser
 from backend.app.schemas.token_schema import Token
 from backend.app.core.security import (
     get_current_active_user,
@@ -15,7 +15,7 @@ from backend.app.core.security import (
     create_access_token,
 )
 from backend.app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
-from backend.app.services import Role_required
+from backend.app.services.user_services import role_required
 
 
 router = APIRouter(tags=["Auth"])
@@ -127,6 +127,7 @@ def read_user(user_id: str, db: Session = Depends(get_session)):
 
 
 
+
 @router.get("/users/", response_model=list[UserRead])
 @role_required(["admin"])
 async def read_users(
@@ -147,3 +148,32 @@ async def read_current_user(
     if getattr(current_user, "disabled", False):
         raise HTTPException(status_code=400, detail="no user is inactive")
     return UserRead.from_orm(current_user)
+
+
+@router.put("/update/", response_model=UpdateUser)
+@role_required(["admin"])
+async def update_user( 
+    User_data: UpdateUser,
+    db: Session = Depends(get_session),
+    ):
+    statement = select(User).where( User.id == User_data.id)
+    user = db.exec(statement).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User dose not exist",
+        )
+    Updated_user = user(
+        first_name=User_data.first_name,
+        last_name=User_data.last_name,
+        email=User_data.email,
+        password=get_password_hash(User_data.password),
+        is_active= User_data.is_active,
+        had_strike = User_data.had_strike,
+        strike = User_data.strike,
+        brand = User_data.brand,
+    )
+    db.add(Updated_user)
+    db.commit()
+    db.refresh(Updated_user)
+    return UpdateUser.from_orm(Updated_user)

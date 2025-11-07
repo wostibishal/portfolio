@@ -48,7 +48,7 @@ class CRUDBase(Generic[ModelType]):
             update_data = obj_in
         else:
             update_data = obj_in.dict(exclude_unset=True)
-        for key, value in update_data.items():
+        for key, value in update_data.products():
             setattr(db_obj, key, value)
         db.add(db_obj)
         db.commit()
