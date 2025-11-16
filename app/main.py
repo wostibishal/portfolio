@@ -1,7 +1,7 @@
 from fastapi import FastAPI # type: ignore
 from sqlmodel import SQLModel
 from backend.app.db.database import engine
-from backend.app.routers import auths_router, products_router
+from backend.app.routers import auths_router, product_router
 
 app = FastAPI()
 
@@ -12,5 +12,5 @@ async def startup_event():
    print('database tables created')
 
 app.include_router(auths_router.router, prefix="/auth")
-app.include_router(products_router.router, prefix="/product")
+# app.include_router(product_router.router, prefix="/product")
 #app.include_router(users.router, prefix="/users", tags=["users"])

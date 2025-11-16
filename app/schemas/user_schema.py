@@ -1,19 +1,22 @@
 from datetime import datetime
 from sqlmodel import SQLModel, Field
 from uuid import UUID
-from backend.app.services.user_services import Role
+from backend.app.core.role import Role
 
 class userBase(SQLModel):
     first_name: str
     last_name: str
     email: str
+    is_active: bool 
+    created_at: str 
 
 
-class UserCreate(userBase):
+class CreateUser(userBase):
     password: str
-    is_active: bool = True
-    created_at: str = datetime.now()
-
+   
+ 
+class CreateUserRetailer(CreateUser):
+    brand : str
 
 class UserRead(userBase):
     id: UUID
@@ -22,9 +25,7 @@ class UserRead(userBase):
     class Config:
         from_attributes = True
    
-
-
-class UpdateUser(UserCreate):
+class UpdateUser(CreateUserRetailer):
     is_active: bool = False
     had_strike: bool = False
     strike: int = Field(default= 0)
@@ -32,3 +33,6 @@ class UpdateUser(UserCreate):
 
     class Config:
         form_attributes = True
+
+class deleteUser(SQLModel):
+    id : UUID

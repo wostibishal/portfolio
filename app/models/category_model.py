@@ -1,6 +1,8 @@
 from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
-from backend.app.models.product_model import Product
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.app.models.product_model import Product
 
 class Category(SQLModel, table=True):
     __table__ = "category"
