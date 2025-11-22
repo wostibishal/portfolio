@@ -1,38 +1,77 @@
-from datetime import datetime
-from sqlmodel import SQLModel, Field
+from pydantic import BaseModel, EmailStr
 from uuid import UUID
-from backend.app.core.role import Role
+from typing import Optional
+from datetime import datetime
+from backend.app.core.enum import Role
 
-class userBase(SQLModel):
+class UserCreateBase(BaseModel):
+    email: EmailStr
+    password: str
     first_name: str
     last_name: str
-    email: str
-    is_active: bool 
-    created_at: str 
 
+class RetailerRegister(UserCreateBase):
+    brand_name: str
+    
+class DisplayUser(BaseModel):
+    id : UUID
+    first_name: str
+    last_name: str
+    email : EmailStr
 
-class CreateUser(userBase):
-    password: str
-   
- 
-class CreateUserRetailer(CreateUser):
-    brand : str
-
-class UserRead(userBase):
-    id: UUID
-    role: Role
-   
     class Config:
         from_attributes = True
-   
-class UpdateUser(CreateUserRetailer):
-    is_active: bool = False
-    had_strike: bool = False
-    strike: int = Field(default= 0)
-    brand: str = Field(default= None)
+
+class DisplayRetailer(DisplayUser):
+    brand_name : Optional[str] = None
 
     class Config:
-        form_attributes = True
+        from_attributes = True
 
-class deleteUser(SQLModel):
-    id : UUID
+class SuperDisplayUser(DisplayRetailer):
+    role : Optional[Role]
+    is_active : bool
+    created_at : datetime
+    strike_count: Optional[int] = None
+    is_verified : Optional[bool] = None
+
+    class Config:
+        from_attributes = True
+
+
+
+class ReadUser(BaseModel):
+    email : EmailStr
+
+    class Config:
+        from_attributes = True
+
+class UpdateUser(BaseModel):
+    first_name: str
+    last_name: str
+    email : str
+    password: str
+
+
+class UpdateRetailer(UpdateUser):
+    brand_name : Optional[str] = None
+
+    class Config:
+        from_attributes = True 
+        
+
+class SuperUpdate(UpdateRetailer):
+    strike_count: Optional[int] = None 
+    is_verified : Optional[bool] = None
+    is_active : Optional[bool] 
+
+    class Config:
+        from_attributes = True 
+
+class DeleteUser(BaseModel):
+    email: EmailStr
+
+    class Config:
+        from_attributes = True 
+
+

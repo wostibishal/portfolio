@@ -1,27 +1,44 @@
 from sqlmodel import Field, SQLModel, Relationship
 from uuid import UUID, uuid4
-from typing import TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
+from datetime import datetime, timezone
+from decimal import Decimal
 
 if TYPE_CHECKING:
-    from backend.app.models.user_model import Retailer
-    from backend.app.models.comment_model import Comment
-    from backend.app.models.rating_model import Rating
+    from backend.app.models.order_model import OrderItem
+    from backend.app.models.rating_model import Review
+    from backend.app.models.user_model import User
+
+class Category(SQLModel, table=True):
+    __tablename__ = "categories"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(index=True)
+    slug: str = Field(unique=True) # e.g., "electronics-laptops"
+    
+    # Relationships
+    products: List["Product"] = Relationship(back_populates="category")
 
 
-class Product(SQLModel, table=True):
-    __tablename__ = "product"
+class Product(SQLModel, table=True): 
+
+    __tablename__ = "products"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    name: str
-    image_url: str | None = None
-    description: str | None = None
-    price: float
-    quantity: int | None = None
-    is_offer: bool | None = None
-    owner_id: UUID = Field(foreign_key="retailer.id", nullable=False)
-    category_id: UUID | None = None
-    in_stock: bool = True
+    seller_id: UUID = Field(foreign_key="users.id")
+    category_id: Optional[UUID] = Field(default=None, foreign_key="categories.id")
+    
+    title: str
+    description: str
+    price: Decimal = Field(default=0.0, max_digits=10, decimal_places=2)
+    stock_quantity: int = Field(default=0)
+    image_url: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=lambda:datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda:datetime.now(timezone.utc))
 
-    retailer: "Retailer" = Relationship(back_populates="product")
-    comments: list["Comment"] = Relationship(back_populates="product")
-    ratings: list["Rating"] = Relationship(back_populates="product")
+    # Relationships
+    seller: "User" = Relationship(back_populates="products")
+    category: Optional["Category"] = Relationship(back_populates="products")
+    order_items: List["OrderItem"] = Relationship(back_populates="product")
+    reviews: List["Review"] = Relationship(back_populates="product")

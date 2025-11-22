@@ -1,96 +1,35 @@
-from functools import wraps
 from datetime import timedelta
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Path
 from fastapi.security import OAuth2PasswordRequestForm
-from uuid import UUID
-from typing import Any, TYPE_CHECKING, Annotated
+from typing import Annotated
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload 
+from pydantic import EmailStr
 from backend.app.core.security import (
-    verify_password,
-    create_access_token,
     get_password_hash,
-    )
-import jwt
-from jwt.exceptions import InvalidTokenError
+    create_access_token,
+    authenticate_user,
+    RoleChecker,
+)
 from backend.app.schemas.token_schema import Token
-from backend.app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
-from backend.app.schemas.user_schema import UserRead, CreateUserRetailer
-from backend.app.core.security import oauth2_scheme
-from backend.app.db.session import  get_session
-from backend.app.core.role import Role
+from backend.app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from backend.app.schemas.user_schema import (
+     UserCreateBase, DisplayUser, SuperDisplayUser, RetailerRegister, ReadUser, SuperUpdate, DisplayRetailer)
+from backend.app.db.session import get_session
+from backend.app.core.enum import Role
 from backend.app.services.crud_service import user_crud
-
-def role_required(allowed_roles: list[str]):
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, current_user=Depends(get_current_active_user), **kwargs):
-            if current_user.role not in allowed_roles:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied. Requires roles: {allowed_roles}"
-                )
-            return await func(*args, **kwargs)
-        return wrapper
-    return decorator 
-
-def get_user(db: Session, email: str, model : Role ):
-        statement = select(model).where(model.email == email)
-        user= db.exec(statement).first()
-        if user:
-            return user
-        raise HTTPException(status_code=404, detail='no user')
-    
-
-def authenticate_user(db: Session, email: str, password: str, model : Role):
-    user = get_user(db, email=email, model=model )
-    if not user or not verify_password(password, user.hashed_password):
-        return None
-    return user
-
-
-
-async def get_current_user(
-    model: Role,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_session),
-):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("email")
-        if email is None:
-            raise credentials_exception
-    except InvalidTokenError:
-        raise credentials_exception
-
-    user = get_user(db, email=email, model=model)
-    if user is None:
-        raise credentials_exception
-    return user
-
-
-async def get_current_active_user(model: Role):
-    current_user = Depends(get_current_user(model= model))
-    if getattr(current_user, "disabled", False):
-        raise HTTPException(status_code=400, detail="Inactive user")    
-    return current_user
-
-
+from backend.app.models.user_model import User
+from backend.app.models.user_model import RetailerProfile
 
 
 async def login_for_access_token(
-        model: Role,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
         db: Session = Depends(get_session), 
     ) -> Token:
         
-        statement = select(model).where(model.email == form_data.username)
-        user = db.exec(statement).first()
-        if user and verify_password(form_data.password, user.hashed_password):
+        user = authenticate_user(db, email=form_data.username, password=form_data.password)
+
+        if user:
             access_token_expires = timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
             access_token = create_access_token(
                     data={"email": user.email},
@@ -105,15 +44,11 @@ async def login_for_access_token(
             )
 
 
-
-async def signup_user(
-        model: Role,
-        user_data: CreateUserRetailer,
+async def signup_costumer(
+        user_data: UserCreateBase,
         db: Session = Depends(get_session),
-    ) -> UserRead:
-        # Check if email already exists
-
-        statement = select(model).where(model.email == user_data.email)
+    ) -> DisplayUser:
+        statement = select(User).where(User.email == user_data.email)
         existing_user = db.exec(statement).first()
             
         if existing_user:
@@ -121,42 +56,151 @@ async def signup_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered",
             )
-            # Hash password
+        
         hashed_pw = get_password_hash(user_data.password)
+        user_create_data = user_data.model_dump() 
+        user_create_data["hashed_password"] = hashed_pw
+        user_create_data["role"] = Role.COSTUMER.value 
 
-            # Create model instance
-        new_user = model(
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
-            email=user_data.email,
-            hashed_password=hashed_pw,
-            brand = user_data.brand
+        new_user = user_crud.create(db=db, obj_in=user_create_data) 
+        return DisplayUser.model_validate(new_user)
+
+
+async def signup_retailer(
+        user_data: RetailerRegister,
+        db: Session = Depends(get_session),
+    ) -> DisplayRetailer:
+        statement = select(User).where(User.email == user_data.email)
+        existing_user = db.exec(statement).first()
+            
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered",
             )
-        user_crud.create(new_user)
-        return UserRead.from_orm(new_user)
+        
+        hashed_pw = get_password_hash(user_data.password)
+        
+        user_create_data = user_data.model_dump(exclude={"brand_name"})
+        user_create_data["hashed_password"] = hashed_pw
+        user_create_data["role"] = Role.RETAILER.value
+        user_create_data["is_active"] = False 
+
+        new_user = user_crud.create(db=db, obj_in=user_create_data)
+
+        retailer_profile_data = {
+            "user_id": new_user.id,
+            "brand_name": user_data.brand_name,
+        }
+        
+        new_profile = RetailerProfile(**retailer_profile_data)
+        db.add(new_profile)
+        db.commit()
+        db.refresh(new_profile)
+        
+        new_user.retailer_profile = new_profile
+
+        return DisplayRetailer.model_validate(new_user)
 
 
+async def signup_super(
+        user_data: UserCreateBase,
+        db: Session = Depends(get_session),
+    ) -> SuperDisplayUser:
+        statement = select(User).where(User.email == user_data.email)
+        existing_user = db.exec(statement).first()
+            
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered",
+            )
+        
+        hashed_pw = get_password_hash(user_data.password)
+        user_create_data = user_data.model_dump() 
+        user_create_data["hashed_password"] = hashed_pw
+        user_create_data["role"] = Role.SUPER.value
+        
+        new_user = user_crud.create(db=db, obj_in=user_create_data)
+        
+        return SuperDisplayUser.model_validate(new_user)
 
-@role_required(["super"])
-async def read_user(user_id: UUID, model: Role, db: Session = Depends(get_session) ): 
-        user = db.get(model, user_id)
+
+async def admin_read_user( 
+    email: EmailStr = Path(...), 
+    db: Session = Depends(get_session),
+    current_user: User = Depends(RoleChecker(["super"])), 
+) -> SuperDisplayUser: 
+        statement = (
+            select(User)
+            .options(selectinload(User.retailer_profile)) 
+            .where(User.email == email)
+        )
+        user = db.exec(statement).first() 
+
         if user:
-            return UserRead.from_orm(user)
-        raise HTTPException(status_code=404, detail="User not found")
+            return SuperDisplayUser.model_validate(user)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
 
-    
-@role_required(["super"])
-async def read_users(
-        model: Role,
+async def admin_read_users(
         skip : int = 0,
         limit : int = 10,
         db: Session= Depends(get_session),
-    ):
-        users : Any = []
-       
-        statement = select(model).offset(skip).limit(limit)
-        user = db.exec(statement).all()
-        users.extend(user)
+        current_user: User = Depends(RoleChecker(["super"])),
+    ) -> list[SuperDisplayUser]:
+        statement = (
+            select(User)
+            .options(selectinload(User.retailer_profile))
+            .offset(skip)
+            .limit(limit)
+        )
+        users = db.exec(statement).all()
+        
+        if users:
+             return [SuperDisplayUser.model_validate(u) for u in users]    
+             
+        return []
+
+async def admin_update_user(
+    data: SuperUpdate,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(RoleChecker(["super"])),
+) -> SuperDisplayUser:
+    statement = (
+        select(User)
+        .options(selectinload(User.retailer_profile))
+        .where(User.email == data.email)
+    )
+    user = db.exec(statement).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email doesn't exist",
+        )
+    
+    user_update_data = data.model_dump(exclude_unset=True) 
+
+    if "password" in user_update_data:
+        hash_password = get_password_hash(user_update_data["password"])
+        user_update_data["hashed_password"] = hash_password
+        del user_update_data["password"] 
+
+    if user.role.value == Role.RETAILER.value:
+        retailer_fields = ["brand_name", "strike_count", "is_verified"]
+        
+        if user.retailer_profile:
+            for field in retailer_fields:
+                if field in user_update_data:
+                    setattr(user.retailer_profile, field, user_update_data[field])
+                    del user_update_data[field]
             
-        raise HTTPException(status_code=404, detail="User not found")
+            db.add(user.retailer_profile)
+
+    update_user = user_crud.update(db=db, db_obj=user, obj_in=user_update_data)
+    
+    db.commit()
+    db.refresh(update_user)
+    
+    return SuperDisplayUser.model_validate(update_user)
