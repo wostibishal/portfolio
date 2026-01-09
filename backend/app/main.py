@@ -1,4 +1,4 @@
-from fastapi import FastAPI # type: ignore
+from fastapi import FastAPI
 from sqlmodel import SQLModel
 from backend.app.db.database import engine
 from backend.app.routers import auths_router, product_router
