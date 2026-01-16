@@ -74,4 +74,11 @@ class DeleteUser(BaseModel):
     class Config:
         from_attributes = True 
 
+class UpdatePassword(BaseModel):
+   
+    current_password: str
+    password : str
+    password2: str
 
+    class Config:
+        from_attributes = True

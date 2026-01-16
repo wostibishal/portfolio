@@ -1,4 +1,4 @@
-from backend.app.services.crud import CRUDBase
+from backend.app.util.crud import CRUDBase
 from backend.app.models.product_model import Product
 from backend.app.models.user_model import User 
 

@@ -3,6 +3,7 @@ from uuid import uuid4, UUID
 from datetime import datetime, timezone
 from backend.app.core.enum import Role
 from typing import  Optional, List
+from sqlalchemy.ext.declarative import declared_attr
 
 
 from backend.app.models.product_model import Product
@@ -35,7 +36,7 @@ class User(SQLModel, table=True):
 
 class RetailerProfile(SQLModel, table=True):
     __tablename__ = "retailer_profiles"
-
+    
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="users.id", unique=True)
     

@@ -3,23 +3,28 @@ from fastapi import Depends, HTTPException, status, Path
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Annotated
 from sqlmodel import Session, select
-from sqlalchemy.orm import selectinload 
 from pydantic import EmailStr
 from backend.app.core.security import (
-    get_password_hash,
-    create_access_token,
-    authenticate_user,
     RoleChecker,
+    create_access_token
 )
 from backend.app.schemas.token_schema import Token
 from backend.app.core.config import ACCESS_TOKEN_EXPIRE_MINUTES
 from backend.app.schemas.user_schema import (
-     UserCreateBase, DisplayUser, SuperDisplayUser, RetailerRegister, ReadUser, SuperUpdate, DisplayRetailer)
+    UserCreateBase, DisplayUser, SuperDisplayUser, 
+    RetailerRegister, ReadUser, SuperUpdate,
+    DisplayRetailer,UpdatePassword
+)
 from backend.app.db.session import get_session
 from backend.app.core.enum import Role
-from backend.app.services.crud_service import user_crud
+from backend.app.util.crud_service import user_crud
 from backend.app.models.user_model import User
 from backend.app.models.user_model import RetailerProfile
+from backend.app.util.user.auth_user import authenticate_user
+from backend.app.util.user.get_current_active_user import get_current_active_user
+from backend.app.util.user.get_password_hash import get_password_hash
+
+
 
 
 async def login_for_access_token(
@@ -30,7 +35,7 @@ async def login_for_access_token(
         user = authenticate_user(db, email=form_data.username, password=form_data.password)
 
         if user:
-            access_token_expires = timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
+            access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             access_token = create_access_token(
                     data={"email": user.email},
                     expires_delta=access_token_expires,
@@ -131,76 +136,89 @@ async def admin_read_user(
     db: Session = Depends(get_session),
     current_user: User = Depends(RoleChecker(["super"])), 
 ) -> SuperDisplayUser: 
-        statement = (
-            select(User)
-            .options(selectinload(User.retailer_profile)) 
-            .where(User.email == email)
-        )
-        user = db.exec(statement).first() 
+        if current_user.role == Role.SUPER:
+            statement = select(User).where(User.email == email)
+            user = db.exec(statement).first() 
 
-        if user:
-            return SuperDisplayUser.model_validate(user)
+            if user:
+                return SuperDisplayUser.model_validate(user)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
 
 async def admin_read_users(
-        skip : int = 0,
-        limit : int = 10,
-        db: Session= Depends(get_session),
-        current_user: User = Depends(RoleChecker(["super"])),
-    ) -> list[SuperDisplayUser]:
-        statement = (
-            select(User)
-            .options(selectinload(User.retailer_profile))
-            .offset(skip)
-            .limit(limit)
-        )
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(RoleChecker(["super"])),
+) -> list[SuperDisplayUser]:
+
+    if current_user.role == Role.SUPER:
+        statement = select(User).offset(skip).limit(limit)
         users = db.exec(statement).all()
-        
+
         if users:
-             return [SuperDisplayUser.model_validate(u) for u in users]    
-             
-        return []
+            return [SuperDisplayUser.model_validate(u) for u in users]
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Access denied"
+    )
 
 async def admin_update_user(
     data: SuperUpdate,
     db: Session = Depends(get_session),
     current_user: User = Depends(RoleChecker(["super"])),
 ) -> SuperDisplayUser:
-    statement = (
-        select(User)
-        .options(selectinload(User.retailer_profile))
-        .where(User.email == data.email)
-    )
-    user = db.exec(statement).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email doesn't exist",
-        )
-    
-    user_update_data = data.model_dump(exclude_unset=True) 
-
-    if "password" in user_update_data:
-        hash_password = get_password_hash(user_update_data["password"])
-        user_update_data["hashed_password"] = hash_password
-        del user_update_data["password"] 
-
-    if user.role.value == Role.RETAILER.value:
-        retailer_fields = ["brand_name", "strike_count", "is_verified"]
+    if current_user.role == Role.SUPER:
+        statement = (select(User).where(User.email == data.email))
+        user = db.exec(statement).first()
         
-        if user.retailer_profile:
-            for field in retailer_fields:
-                if field in user_update_data:
-                    setattr(user.retailer_profile, field, user_update_data[field])
-                    del user_update_data[field]
-            
-            db.add(user.retailer_profile)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email doesn't exist",
+            )
+    
+        user_update_data = data.model_dump(exclude_unset=True) 
 
-    update_user = user_crud.update(db=db, db_obj=user, obj_in=user_update_data)
+        if "password" in user_update_data:
+            hash_password = get_password_hash(user_update_data["password"])
+            user_update_data["hashed_password"] = hash_password
+            del user_update_data["password"] 
+
+        if user.role.value == Role.RETAILER.value:
+            retailer_fields = ["brand_name", "strike_count", "is_verified"]
+            
+            if user.retailer_profile:
+                for field in retailer_fields:
+                    if field in user_update_data:
+                        setattr(user.retailer_profile, field, user_update_data[field])
+                        del user_update_data[field]
+                
+                db.add(user.retailer_profile)
+
+        update_user = user_crud.update(db=db, db_obj=user, obj_in=user_update_data)
+        
+        db.commit()
+        db.refresh(update_user)
+        
+        return SuperDisplayUser.model_validate(update_user)
     
-    db.commit()
-    db.refresh(update_user)
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Access denied"
+    )
+
+def update_password(
+    data: UpdatePassword,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_active_user)  
+) -> ReadUser:
+    user = db.exec(select(User).where(User.email == current_user.email)).first()
+    user_update_data = data.model_dump()
     
-    return SuperDisplayUser.model_validate(update_user)
