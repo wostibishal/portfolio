@@ -23,6 +23,7 @@ from backend.app.models.user_model import RetailerProfile
 from backend.app.util.user.auth_user import authenticate_user
 from backend.app.util.user.get_current_active_user import get_current_active_user
 from backend.app.util.user.get_password_hash import get_password_hash
+from backend.app.util.user.verify_password import verify_password 
 
 
 
@@ -49,7 +50,7 @@ async def login_for_access_token(
             )
 
 
-async def signup_costumer(
+def signup_costumer(
         user_data: UserCreateBase,
         db: Session = Depends(get_session),
     ) -> DisplayUser:
@@ -71,7 +72,7 @@ async def signup_costumer(
         return DisplayUser.model_validate(new_user)
 
 
-async def signup_retailer(
+def signup_retailer(
         user_data: RetailerRegister,
         db: Session = Depends(get_session),
     ) -> DisplayRetailer:
@@ -108,7 +109,7 @@ async def signup_retailer(
         return DisplayRetailer.model_validate(new_user)
 
 
-async def signup_super(
+def signup_super(
         user_data: UserCreateBase,
         db: Session = Depends(get_session),
     ) -> SuperDisplayUser:
@@ -131,9 +132,9 @@ async def signup_super(
         return SuperDisplayUser.model_validate(new_user)
 
 
-async def admin_read_user( 
+def admin_read_user( 
     email: EmailStr = Path(...), 
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_session),      
     current_user: User = Depends(RoleChecker(["super"])), 
 ) -> SuperDisplayUser: 
         if current_user.role == Role.SUPER:
@@ -145,7 +146,7 @@ async def admin_read_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
 
-async def admin_read_users(
+def admin_read_users(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_session),
@@ -169,7 +170,7 @@ async def admin_read_users(
         detail="Access denied"
     )
 
-async def admin_update_user(
+def admin_update_user(
     data: SuperUpdate,
     db: Session = Depends(get_session),
     current_user: User = Depends(RoleChecker(["super"])),
@@ -218,7 +219,17 @@ def update_password(
     data: UpdatePassword,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_active_user)  
-) -> ReadUser:
-    user = db.exec(select(User).where(User.email == current_user.email)).first()
-    user_update_data = data.model_dump()
+) -> DisplayUser:
     
+    if not verify_password(data.current_password,current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    hash_new_password = get_password_hash(data.password)
+    current_user.hashed_password = hash_new_password
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return DisplayUser.model_validate(current_user)      
+     

@@ -8,7 +8,8 @@ from backend.app.services.user_services import (
     signup_super,
     admin_read_user,
     admin_read_users,
-    admin_update_user
+    admin_update_user,
+    update_password
     )
 
 router = APIRouter(tags=["Auth"])
@@ -20,3 +21,4 @@ router.post("/signup/super/", response_model=DisplayUser)(signup_super)
 router.get("/user/{email}", response_model=SuperDisplayUser)(admin_read_user)
 router.get("/users/", response_model=list[SuperDisplayUser])(admin_read_users)
 router.put("/user/update/", response_model=SuperDisplayUser)(admin_update_user)
+router.put("/user/updatePassword", response_model=DisplayUser)(update_password)

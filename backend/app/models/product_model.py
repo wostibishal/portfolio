@@ -14,7 +14,7 @@ class Category(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(index=True)
-    slug: str = Field(unique=True) # e.g., "electronics-laptops"
+    slug: str = Field(unique=True)
     
     # Relationships
     products: List["Product"] = Relationship(back_populates="category")
